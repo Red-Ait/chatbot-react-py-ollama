@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+httpx
+sqlite3
+psycopg2-binary
+tiktoken
