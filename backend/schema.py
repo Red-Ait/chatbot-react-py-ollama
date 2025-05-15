@@ -7,4 +7,5 @@ class MessageRequest(BaseModel):
 
 class AskRequest(BaseModel):
     messages: list[MessageRequest]
+    provider: str
 

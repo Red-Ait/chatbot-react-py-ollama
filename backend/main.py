@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Request
 from schema import AskRequest
-from ollama_client import generate_sql_from_question, generate_answer_from_result
+import ollama_client
+import openai_client 
 from db import run_sql_query
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -24,10 +25,14 @@ app.add_middleware(
 def ask_question(req: AskRequest):
     question = req.messages[-1].content
     print("Question: ", question)
-    query = generate_sql_from_question(req.messages)
+    if(req.provider == "openai"):
+        query = openai_client.generate_sql_from_question(req.messages)
+    else:
+        query = ollama_client.generate_sql_from_question(req.messages)
+
     sql = query["sql"]
     lang = query["language"]
-    if query == "-1":
+    if sql == "":
         return {
         "question": question,
         "sql_query": "",
@@ -36,7 +41,11 @@ def ask_question(req: AskRequest):
     }
 
     result = run_sql_query(sql)
-    answer = generate_answer_from_result(req.messages, sql, lang, result)
+    if(req.provider == "openai"):
+        answer = openai_client.generate_answer_from_result(req.messages, sql, lang, result)
+    else:
+        answer = ollama_client.generate_answer_from_result(req.messages, sql, lang, result)
+
     return {
         "question": question,
         "sql_query": sql,

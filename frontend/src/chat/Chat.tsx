@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Message } from '../types';
 import { API } from '../api';
 import './chat.css';
@@ -7,7 +7,19 @@ const Chat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [provider, setProvider] = useState('ollama');
 
+  const handleChange = (e: any) => {
+    setProvider(e.target.value);
+  }; 
+
+  useEffect(() => {
+    const el = document.getElementById('chat-box');
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [messages]);
+  
   const formatDuration = (ms: number): string => {
     if (ms < 1000) return `${ms} ms`;
 
@@ -25,14 +37,14 @@ const Chat: React.FC = () => {
   const handleSendMessage = () => {
     if (!input.trim()) return;
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: input, duration: 0 }];
+    const newMessages: Message[] = [...messages, { role: 'user', content: input, duration: 0, provider: '' }];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
     const start = Date.now();
-    API.ask(newMessages).then(answer  => {
+    API.ask(newMessages, provider).then(answer  => {
       const duration = Date.now() - start;
-      setMessages([...newMessages, { role: 'assistant', content: answer.data.answer, duration}])
+      setMessages([...newMessages, { role: 'assistant', content: answer.data.answer, duration, provider}])
       setLoading(false)
     });
     
@@ -40,11 +52,32 @@ const Chat: React.FC = () => {
 
   return (
     <div style={{ maxWidth: '600px', margin: 'auto', padding: '20px' }}>
-      <h2>🤖 Chatbot Local (Ollama)</h2>
-      <div style={{ minHeight: '300px', border: '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
+      <h2>🤖 AI Assistant</h2>
+      <div style={{margin: '20px'}}>
+        <label>
+          <input
+            type="radio"
+            value="ollama"
+            checked={provider === 'ollama'}
+            onChange={handleChange}
+          />
+          <b>Ollama (Local)</b>
+        </label>
+
+        <label style={{ marginLeft: '1rem' }}>
+          <input
+            type="radio"
+            value="openai"
+            checked={provider === 'openai'}
+            onChange={handleChange}
+          />
+           <b> OpenAI</b>
+        </label>
+      </div>
+      <div id='chat-box' style={{ minHeight: '300px', maxHeight: '600px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
       {messages.map((msg, index) => (
         <div key={index} className={`message ${msg.role}`}>
-          <p><strong>{msg.role === 'user' ? 'Vous' : `Bot (${formatDuration(msg.duration)})`}:</strong> {msg.content}</p>
+          <p><strong>{msg.role === 'user' ? 'Vous' : `Bot (${formatDuration(msg.duration)} from ${msg.provider})`}:</strong> {msg.content}</p>
         </div>
       ))}
       {loading && (
