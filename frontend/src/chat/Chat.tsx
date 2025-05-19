@@ -7,7 +7,7 @@ const Chat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [provider, setProvider] = useState('ollama');
+  const [provider, setProvider] = useState<'ollama' | 'openai'>('ollama');
 
   const handleChange = (e: any) => {
     setProvider(e.target.value);
@@ -37,16 +37,17 @@ const Chat: React.FC = () => {
   const handleSendMessage = () => {
     if (!input.trim()) return;
 
-    const newMessages: Message[] = [...messages, { role: 'user', content: input, duration: 0, provider: '' }];
+    const newMessages: Message[] = [...messages, { role: 'user', content: input }];
     setMessages(newMessages);
     setInput('');
     setLoading(true);
     const start = Date.now();
     API.ask(newMessages, provider).then(answer  => {
       const duration = Date.now() - start;
-      setMessages([...newMessages, { role: 'assistant', content: answer.data.answer, duration, provider}])
-      setLoading(false)
-    });
+      setMessages([...newMessages, { role: 'assistant', content: answer.data.answer, duration, provider, status: 'success'}])
+    }).catch(() => {
+      setMessages([...newMessages, { role: 'assistant', content: 'Unknown Error, please retry !', provider, status: 'error'}])
+    }).finally(() => setLoading(false));
     
   }
 
@@ -76,12 +77,12 @@ const Chat: React.FC = () => {
       </div>
       <div id='chat-box' style={{ minHeight: '300px', maxHeight: '600px', overflowY: 'auto', border: '1px solid #ccc', padding: '10px', marginBottom: '10px' }}>
       {messages.map((msg, index) => (
-        <div key={index} className={`message ${msg.role}`}>
-          <p><strong>{msg.role === 'user' ? 'Vous' : `Bot (${formatDuration(msg.duration)} from ${msg.provider})`}:</strong> {msg.content}</p>
+        <div key={index} className={`message ${msg.role} ${msg.status}`}>
+          <p><strong>{msg.role === 'user' ? 'Vous' : `Bot (${formatDuration(msg.duration ?? 0)} from ${msg.provider})`}:</strong> {msg.content}</p>
         </div>
       ))}
       {loading && (
-        <div className="message assistant">
+        <div className="message assistant success">
           <p>•••</p>
         </div>
       )}

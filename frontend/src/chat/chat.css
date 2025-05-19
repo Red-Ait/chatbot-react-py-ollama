@@ -45,9 +45,14 @@
     color: #003865;
   }
   
-  .message.assistant p {
+  .message.assistant.success p {
     background-color: #e9ecef;
     color: #333;
+  }
+  
+  .message.assistant.error p {
+    background-color: #efbbbb;
+    color: #241111;
   }
   
   .input-container {
