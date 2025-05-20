@@ -1,8 +1,7 @@
 from fastapi import FastAPI, Request
 from schema import AskRequest
-import ollama_client
-import openai_client 
-from db import run_sql_query
+import assitant_service
+import db
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
@@ -23,32 +22,100 @@ app.add_middleware(
 
 @app.post("/ask")
 def ask_question(req: AskRequest):
-    question = req.messages[-1].content
-    print("Question: ", question)
-    if(req.provider == "openai"):
-        query = openai_client.generate_sql_from_question(req.messages)
-    else:
-        query = ollama_client.generate_sql_from_question(req.messages)
 
-    sql = query["sql"]
-    lang = query["language"]
-    if sql == "":
+    user_input=req.messages[-1].content
+    provider=req.provider
+
+    try:
+        query = assitant_service.generate_sql_from_question(req.messages, provider)
+    except Exception as e:
+        db.insert_metrics(
+            user_input = user_input,
+            provider = provider,
+            generated_sql_status = "failure",
+            exception_msg=str(e)
+        )
         return {
-        "question": question,
-        "sql_query": "",
-        "result": "",
-        "answer": "I'm sorry, I didn't understand your question. Could you please rephrase it?"
-    }
+            "question": user_input,
+            "sql_query": "",
+            "result": "",
+            "answer": "Sorry, I couldn't understand your question. Please rephrase it."
+        }
 
-    result = run_sql_query(sql)
-    if(req.provider == "openai"):
-        answer = openai_client.generate_answer_from_result(req.messages, sql, lang, result)
-    else:
-        answer = ollama_client.generate_answer_from_result(req.messages, sql, lang, result)
+    generated_sql = query["sql"]
+    language = query["language"]
+    generate_sql_request_tokens = query["tokens"],
+    generated_sql_duration_ms = query["duration"],
+
+    if generated_sql == "":
+        db.insert_metrics(
+            user_input = user_input,
+            provider = provider,
+            generated_sql = generated_sql,
+            generated_sql_duration_ms = generated_sql_duration_ms,
+            generate_sql_request_tokens = generate_sql_request_tokens,
+            generated_sql_status = "failure",
+            language=language
+        )
+        return {
+            "question": user_input,
+            "sql_query": "",
+            "result": "",
+            "answer": "I'm sorry, I didn't understand your question. Could you please rephrase it?"
+        }
+
+    sql_result = db.run_sql_query(generated_sql)
+
+    try:
+        generated_answer = assitant_service.generate_answer_from_result(req.messages, generated_sql, language, sql_result, provider)
+    except Exception as e:
+        db.insert_metrics(
+            user_input = user_input,
+            generate_sql_request_tokens = generate_sql_request_tokens,
+            provider = provider,
+            generated_sql = generated_sql,
+            generated_sql_duration_ms = generated_sql_duration_ms,
+            generated_sql_status = "success",
+            sql_result = sql_result,
+            generated_interpretation_status = "failure",
+            language = language,
+            exception_msg=str(e)
+        )
+        return {
+            "question": user_input,
+            "sql_query": "",
+            "result": "",
+            "answer": "I'm sorry, I didn't understand your question. Could you please rephrase it?"
+        }
+    
+
+    generated_interpretation = generated_answer["interpretation"]
+    generate_interpretation_request_tokens=generated_answer["tokens"],
+    generated_interpretation_duration_ms=generated_answer["duration"],
+
+    db.insert_metrics(
+        user_input = user_input,
+        generate_sql_request_tokens = generate_sql_request_tokens,
+        provider = provider,
+        generated_sql = generated_sql,
+        generated_sql_duration_ms = generated_sql_duration_ms,
+        generated_sql_status = "success",
+        sql_result = sql_result,
+        generate_interpretation_request_tokens = generate_interpretation_request_tokens,
+        generated_interpretation = generated_interpretation,
+        generated_interpretation_duration_ms = generated_interpretation_duration_ms,
+        generated_interpretation_status = "success",
+        language = language
+    )
 
     return {
-        "question": question,
-        "sql_query": sql,
-        "result": result,
-        "answer": answer
+        "question": user_input,
+        "sql_query": generated_sql,
+        "result": sql_result,
+        "answer": generated_interpretation
     }
+
+
+@app.get("/metrics")
+def get_metrics():
+    return db.get_metrics()

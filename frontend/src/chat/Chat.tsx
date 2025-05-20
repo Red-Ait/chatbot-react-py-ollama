@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Message } from '../types';
 import { API } from '../api';
 import './chat.css';
+import { formatDuration } from '../utils';
 
 const Chat: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -20,19 +21,11 @@ const Chat: React.FC = () => {
     }
   }, [messages]);
   
-  const formatDuration = (ms: number): string => {
-    if (ms < 1000) return `${ms} ms`;
-
-    const seconds = ms / 1000;
-    if (seconds < 60) return `${seconds.toFixed(2)} s`;
-
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = (seconds % 60).toFixed(1);
-    if (minutes < 60) return `${minutes} min ${remainingSeconds}s`;
-
-    const hours = Math.floor(minutes / 60);
-    const remainingMinutes = minutes % 60;
-    return `${hours}h ${remainingMinutes}min`;
+  const handleRetryMessage = () => {
+    const userMessages = messages.filter(m => m.role === 'user');
+    const inp = userMessages[userMessages.length - 1].content
+    setInput(inp)
+    handleSendMessage()
   }
   const handleSendMessage = () => {
     if (!input.trim()) return;
@@ -54,6 +47,7 @@ const Chat: React.FC = () => {
   return (
     <div style={{ maxWidth: '600px', margin: 'auto', padding: '20px' }}>
       <h2>🤖 AI Assistant</h2>
+      <a href="/metrics">Monitoring</a>
       <div style={{margin: '20px'}}>
         <label>
           <input
@@ -102,6 +96,7 @@ const Chat: React.FC = () => {
           placeholder="Écrivez votre message..."
         />
         <button disabled={loading} onClick={handleSendMessage}>Envoyer</button>
+        {messages.length > 0 && <button disabled={loading} onClick={handleRetryMessage}>Retry</button>}
       </div>
     </div>
   );
