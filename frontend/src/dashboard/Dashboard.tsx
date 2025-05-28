@@ -1,17 +1,7 @@
 import { useRef, useEffect, useState } from "react";
-import axios from "axios";
 import { averageArray, formatDuration } from "../utils";
-
-type Metric = {
-  id: number;
-  executed_at: string;
-  provider: string;
-  user_input: string;
-  generated_sql_status: string;
-  generated_interpretation_status: string;
-  generated_sql_duration_ms: number;
-  generated_interpretation_duration_ms: number;
-};
+import  { Metric} from "../types"
+import { API } from "../api";
 
 const Dashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<Metric[]>([]);
@@ -33,7 +23,7 @@ const Dashboard: React.FC = () => {
 
 
   const fetchMetrics = () => {
-    axios.get("http://localhost:8000/metrics").then((res) => {
+    API.fetchMetrics().then((res) => {
       setMetrics(res.data);
     });
   }

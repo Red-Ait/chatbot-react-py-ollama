@@ -1,0 +1,104 @@
+name: Deploy React & FastAPI to EC2
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build-backend:
+    name: Build & Deploy Backend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH Key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > key.pem
+          chmod 600 key.pem
+
+      - name: Clean Backend Directory on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_BACKEND_HOST }} << 'ENDSSH'
+            docker rm -f backend || true
+            rm -rf ~/app-backend
+            mkdir -p ~/app-backend
+          ENDSSH
+
+      - name: Copy and Run Backend
+        run: |
+          scp -i key.pem -o StrictHostKeyChecking=no -r ./backend/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_BACKEND_HOST }}:~/app-backend/
+          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_BACKEND_HOST }} bash -s <<EOF
+            cd ~/app-backend
+            docker build -t backend .
+            docker run -d -p 8000:8000 --name backend \
+              -e OPENAI_API_KEY="${{ secrets.OPENAI_API_KEY }}" \
+              -e DB_NAME="${{ secrets.DB_NAME }}" \
+              -e DB_USERNAME="${{ secrets.DB_USERNAME }}" \
+              -e DB_PASSWORD="${{ secrets.DB_PASSWORD }}" \
+              -e DB_HOST="${{ secrets.DB_HOST }}" \
+              -e DB_PORT="${{ secrets.DB_PORT }}" \
+              backend
+          EOF
+
+  build-frontend:
+    name: Build & Deploy Frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup SSH Key
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" | base64 -d > key.pem
+          chmod 600 key.pem
+
+      - name: Clean Frontend Directory on EC2
+        run: |
+          ssh -o StrictHostKeyChecking=no -i key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_FRONTEND_HOST }} << 'ENDSSH'
+            docker rm -f frontend || true
+            rm -rf ~/app-frontend
+            mkdir -p ~/app-frontend
+          ENDSSH
+
+      - name: Build React App Locally with API URL
+        run: |
+          cd frontend
+          echo "REACT_APP_API_URL=http://${{ secrets.EC2_BACKEND_HOST }}:8000" > .env
+          npm install
+          npm run build
+
+      - name: Generate nginx.conf
+        run: |
+          BACKEND_HOST=${{ secrets.EC2_BACKEND_HOST }}
+          cat <<EOF > frontend/default.conf
+          server {
+              listen 80;
+              server_name localhost;
+
+              root /usr/share/nginx/html;
+              index index.html;
+
+              location / {
+                  try_files \$uri /index.html;
+              }
+
+              location /api/ {
+                  proxy_pass http://$BACKEND_HOST:8000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+              }
+          }
+          EOF
+
+      - name: Copy React Build and Nginx Config to EC2 and Run Nginx
+        run: |
+          scp -i key.pem -o StrictHostKeyChecking=no -r ./frontend/build ${{ secrets.EC2_USER }}@${{ secrets.EC2_FRONTEND_HOST }}:~/app-frontend/
+          scp -i key.pem -o StrictHostKeyChecking=no ./frontend/default.conf ${{ secrets.EC2_USER }}@${{ secrets.EC2_FRONTEND_HOST }}:~/app-frontend/default.conf
+          ssh -i key.pem -o StrictHostKeyChecking=no ${{ secrets.EC2_USER }}@${{ secrets.EC2_FRONTEND_HOST }} bash -c "
+            docker rm -f frontend || true &&
+            docker run -d -p 80:80 --name frontend \
+              -v ~/app-frontend/build:/usr/share/nginx/html:ro \
+              -v ~/app-frontend/default.conf:/etc/nginx/conf.d/default.conf:ro \
+              nginx
+          "

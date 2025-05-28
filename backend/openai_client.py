@@ -1,7 +1,8 @@
 from openai import OpenAI
 from schema import MessageRequest
+import vars
 
-client = OpenAI(api_key="sk-...")
+client = OpenAI(api_key=vars.openai_api_key)
 MODEL = "gpt-3.5-turbo"
 
 def fetch(messages: list[MessageRequest]):

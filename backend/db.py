@@ -2,17 +2,19 @@ import psycopg2
 from psycopg2 import sql
 from datetime import timedelta
 from typing import Optional
+import vars
 
 
 DB_CONFIG = {
-    "dbname": "ml-prediction",
-    "user": "postgres",
-    "password": "admin",
-    "host": "localhost",
-    "port": 5432
+    "dbname": vars.db_name,
+    "user": vars.db_username,
+    "password": vars.db_password,
+    "host": vars.db_host,
+    "port": vars.db_port
 }
 
 def run_sql_query(query: str) -> str:
+    print(DB_CONFIG)
     try:
         conn = psycopg2.connect(**DB_CONFIG)
         cursor = conn.cursor()

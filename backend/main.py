@@ -1,14 +1,13 @@
 from fastapi import FastAPI, Request
 from schema import AskRequest
-import assitant_service
+import assistant_service as assistant_service
 import db
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI()
 # Liste des origines autorisées (ex: React en local)
 origins = [
-    "http://localhost:3000",  # React en mode dev
-    "http://127.0.0.1:3000",  # Variante possible
+    "*",
 ]
 
 # Ajout du middleware CORS
@@ -27,7 +26,7 @@ def ask_question(req: AskRequest):
     provider=req.provider
 
     try:
-        query = assitant_service.generate_sql_from_question(req.messages, provider)
+        query = assistant_service.generate_sql_from_question(req.messages, provider)
     except Exception as e:
         db.insert_metrics(
             user_input = user_input,
@@ -67,7 +66,7 @@ def ask_question(req: AskRequest):
     sql_result = db.run_sql_query(generated_sql)
 
     try:
-        generated_answer = assitant_service.generate_answer_from_result(req.messages, generated_sql, language, sql_result, provider)
+        generated_answer = assistant_service.generate_answer_from_result(req.messages, generated_sql, language, sql_result, provider)
     except Exception as e:
         db.insert_metrics(
             user_input = user_input,

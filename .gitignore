@@ -24,3 +24,14 @@ node_modules
 /frontend/yarn-error.log*
 
 /backend/__pycache__
+/backend/.env
+
+/infra/terraform/*.tfstate
+/infra/terraform/*.tfstate.*
+/infra/terraform/crash.log
+/infra/terraform/*.tfplan
+/infra/terraform/*.tfvars
+/infra/terraform/*.tfvars.json
+/infra/terraform/.terraform/
+/infra/terraform/.terraform.lock.hcl
+/infra/terraform/var/
