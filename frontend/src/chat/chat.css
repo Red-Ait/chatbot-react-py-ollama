@@ -1,4 +1,9 @@
 /* src/Chat.css */
+
+h2 {
+      font-size: -webkit-xxx-large;
+}
+    
 .chat-container {
     max-width: 600px;
     margin: 2rem auto;
