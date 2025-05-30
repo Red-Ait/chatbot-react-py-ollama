@@ -47,7 +47,7 @@ const Chat: React.FC = () => {
   return (
     <div style={{ maxWidth: '600px', margin: 'auto', padding: '20px' }}>
       <h2>🤖 AI Assistant</h2>
-      <a href="/metrics">Monitoring</a>
+      <button ><a href="/metrics">Monitoring</a></button>
       <div style={{margin: '20px'}}>
         <label>
           <input
